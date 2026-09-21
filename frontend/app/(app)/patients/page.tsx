@@ -14,10 +14,13 @@ import type { Patient } from "@/types/patient";
 
 export default function PatientsPage() {
   const [query, setQuery] = useState("");
-  const [selected, setSelected] = useState<Patient | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const results = usePatientSearch(query);
 
   const loading = results === undefined;
+  // Derive the open record from the reactive query (not a useState snapshot)
+  // so the detail sheet always shows the current sync status after a sync.
+  const selected = results?.find((p) => p.localId === selectedId) ?? null;
 
   async function handleDelete(patient: Patient): Promise<void> {
     try {
@@ -77,12 +80,12 @@ export default function PatientsPage() {
         <>
           {/* Desktop: elegant table */}
           <div className="hidden lg:block">
-            <PatientTable patients={results} onSelect={setSelected} />
+            <PatientTable patients={results} onSelect={(p) => setSelectedId(p.localId)} />
           </div>
           {/* Tablet portrait + mobile: touch-friendly cards */}
           <div className="grid gap-3 sm:grid-cols-2 lg:hidden">
             {results.map((p) => (
-              <PatientCard key={p.localId} patient={p} onSelect={setSelected} />
+              <PatientCard key={p.localId} patient={p} onSelect={(x) => setSelectedId(x.localId)} />
             ))}
           </div>
         </>
@@ -92,7 +95,7 @@ export default function PatientsPage() {
         patient={selected}
         open={selected !== null}
         onOpenChange={(open) => {
-          if (!open) setSelected(null);
+          if (!open) setSelectedId(null);
         }}
         onDelete={handleDelete}
       />
