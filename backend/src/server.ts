@@ -32,9 +32,20 @@ app.use(express.json({ limit: '256kb' }));
 
 // 2) CORS — restricted to the configured frontend origin(s), with
 //    credentials so the session cookie is sent cross-origin.
+//    FRONTEND_URL may be a comma-separated list. In non-production, any
+//    http://localhost:<port> origin is also accepted so the frontend can
+//    run on whatever port is free (3000, 3002, ...) without backend changes.
+const allowedOrigins: string[] = env.frontendUrls;
 app.use(
   cors({
-    origin: env.frontendUrls,
+    origin: (origin, callback) => {
+      if (!origin) return callback(null, true); // non-browser clients (curl)
+      if (allowedOrigins.includes(origin)) return callback(null, true);
+      if (!env.isProduction && /^http:\/\/localhost:\d+$/.test(origin)) {
+        return callback(null, true);
+      }
+      callback(new Error(`CORS blocked for origin: ${origin}`));
+    },
     credentials: true,
   }),
 );
