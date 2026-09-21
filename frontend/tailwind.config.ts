@@ -40,6 +40,13 @@ const config: Config = {
         "fade-up": { from: { opacity: "0", transform: "translateY(12px)" }, to: { opacity: "1", transform: "translateY(0)" } },
         "fade-in": { from: { opacity: "0" }, to: { opacity: "1" } },
         "scale-in": { from: { opacity: "0", transform: "scale(0.97)" }, to: { opacity: "1", transform: "scale(1)" } },
+        // Dialog variant: keeps the -50%/-50% centering translate baked in,
+        // because a fill-mode animation's transform overrides Tailwind's
+        // -translate-x-1/2 -translate-y-1/2 utilities (which broke centering).
+        "dialog-in": {
+          from: { opacity: "0", transform: "translate(-50%, -50%) scale(0.96)" },
+          to: { opacity: "1", transform: "translate(-50%, -50%) scale(1)" },
+        },
         "flow": { from: { strokeDashoffset: "1200" }, to: { strokeDashoffset: "0" } },
         "drift": { "0%,100%": { transform: "translateY(0)" }, "50%": { transform: "translateY(-10px)" } },
       },
@@ -47,6 +54,7 @@ const config: Config = {
         "fade-up": "fade-up 0.45s ease-out both",
         "fade-in": "fade-in 0.3s ease-out both",
         "scale-in": "scale-in 0.25s ease-out both",
+        "dialog-in": "dialog-in 0.25s ease-out both",
         "flow": "flow 6s ease-in-out infinite alternate",
         "drift": "drift 9s ease-in-out infinite",
       },

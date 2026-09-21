@@ -35,9 +35,10 @@ const DialogContent = React.forwardRef<
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
-        "fixed left-1/2 top-1/2 z-50 grid w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl border border-border bg-card p-6 shadow-lift",
-        "data-[state=open]:animate-scale-in duration-300",
-        "max-h-[92dvh] overflow-y-auto",
+        "fixed left-1/2 top-1/2 z-50 grid w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl border border-border bg-card p-5 shadow-lift sm:p-6",
+        "data-[state=open]:animate-dialog-in",
+        // vh fallback first so dvh wins where supported (older iPadOS, old Chrome)
+        "max-h-[92vh] supports-[height:100dvh]:max-h-[92dvh] overflow-y-auto overscroll-contain",
         className
       )}
       {...props}
