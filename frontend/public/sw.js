@@ -1,7 +1,7 @@
 /* Bijayalakshmi Physiotherapy — offline service worker.
  * App shell: cache-first. API: network-first with offline fallback.
  */
-const CACHE = "bijaya-physio-v1";
+const CACHE = "bijaya-physio-v2";
 const SHELL = [
   "/",
   "/login",
