@@ -15,8 +15,32 @@ export function getDbState(): DbState {
   return mongoose.connection.readyState === 1 ? 'connected' : 'disconnected';
 }
 
-export async function connectToMongo(): Promise<void> {
-  mongoose.connection.on('connected', () => {
+/**
+ * Serverless-safe connection helper (Vercel).
+ *
+ * Reuses the connection across invocations of a warm function instance
+ * instead of opening a new one per request. Resolves once connected;
+ * rejects if MongoDB is unreachable (callers decide how to degrade —
+ * the API layer returns 503s for DB-dependent routes, same as local dev).
+ */
+let cachedConnection: Promise<typeof mongoose> | null = null;
+
+export function ensureDbConnected(): Promise<typeof mongoose> {
+  if (mongoose.connection.readyState === 1) {
+    return Promise.resolve(mongoose);
+  }
+  if (!cachedConnection) {
+    cachedConnection = mongoose
+      .connect(env.mongodbUri, { serverSelectionTimeoutMS: 5000 })
+      .catch((err: unknown) => {
+        cachedConnection = null; // allow a later invocation to retry
+        throw err;
+      });
+  }
+  return cachedConnection;
+}
+
+export async function connectToMongo(): Promise<void> {  mongoose.connection.on('connected', () => {
     console.log('[db] MongoDB connected');
   });
 
