@@ -2,7 +2,9 @@ import Link from "next/link";
 import { Activity } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Hero } from "@/components/landing/hero";
-import { FeatureHighlights } from "@/components/landing/feature-highlights";
+import { CareAreas } from "@/components/landing/care-areas";
+import { HowItWorks } from "@/components/landing/how-it-works";
+import { DoctorBanner } from "@/components/landing/doctor-banner";
 import { Separator } from "@/components/ui/separator";
 
 export default function LandingPage() {
@@ -23,7 +25,9 @@ export default function LandingPage() {
 
       <main className="flex-1">
         <Hero />
-        <FeatureHighlights />
+        <CareAreas />
+        <HowItWorks />
+        <DoctorBanner />
       </main>
 
       <footer className="border-t border-border">

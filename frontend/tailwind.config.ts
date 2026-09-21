@@ -35,6 +35,7 @@ const config: Config = {
           "-apple-system", "BlinkMacSystemFont", "SF Pro Text", "SF Pro Display",
           "Segoe UI", "Roboto", "Helvetica Neue", "Arial", "sans-serif",
         ],
+        display: ["var(--font-display)", "Georgia", "Didot", "serif"],
       },
       keyframes: {
         "fade-up": { from: { opacity: "0", transform: "translateY(12px)" }, to: { opacity: "1", transform: "translateY(0)" } },

@@ -1,8 +1,18 @@
 import type { Metadata, Viewport } from "next";
+import { Fraunces } from "next/font/google";
 import { Toaster } from "sonner";
 import "./globals.css";
 import { Providers } from "./providers";
 import { ServiceWorkerRegister } from "./sw-register";
+
+/** Editorial serif for landing headlines — the premium "clinic" voice. */
+const fraunces = Fraunces({
+  subsets: ["latin"],
+  weight: ["500", "600", "700"],
+  style: ["normal", "italic"],
+  variable: "--font-display",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: {
@@ -57,7 +67,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
         <meta name="mobile-web-app-capable" content="yes" />
       </head>
-      <body>
+      <body className={fraunces.variable}>
         <Providers>
           {children}
           <Toaster position="top-center" gap={8} toastOptions={{ duration: 3200 }} />
