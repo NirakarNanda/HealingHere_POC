@@ -1,11 +1,12 @@
 /**
  * Vercel serverless entry point for the Express API.
  *
- * vercel.json rewrites every /api/* request to this function; the Express
- * app itself does the routing. The MongoDB connection is (re)used across
- * warm invocations. If the database is unreachable the request still flows
- * into the app, which answers 503 for DB-dependent routes and keeps
- * /api/health honest — the same degradation policy as local dev.
+ * This is a catch-all function (`/api/*`): Vercel routes every request under
+ * /api to it while preserving the original request URL, so the Express app
+ * does the routing itself. The MongoDB connection is (re)used across warm
+ * invocations. If the database is unreachable the request still flows into
+ * the app, which answers 503 for DB-dependent routes and keeps /api/health
+ * honest — the same degradation policy as local dev.
  */
 import { app } from '../src/app';
 import { ensureDbConnected } from '../src/config/db';
