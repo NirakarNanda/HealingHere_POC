@@ -1,7 +1,14 @@
-/* Bijayalakshmi Physiotherapy — offline service worker.
+/* Bijayalakshmi Physiotherapy — offline service worker (TEMPLATE).
+ *
  * App shell: cache-first. API: network-first with offline fallback.
+ *
+ * __BUILD_ID__ is replaced with the Next.js build ID at build time (see
+ * scripts/inject-build-id.mjs, run by `npm run build`). Every deployment
+ * therefore ships a byte-different sw.js, so browsers install the fresh
+ * service worker instead of running a stale cached bundle against a new
+ * backend contract.
  */
-const CACHE = "bijaya-physio-v2";
+const CACHE = "bijaya-physio-__BUILD_ID__";
 const SHELL = [
   "/",
   "/login",

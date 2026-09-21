@@ -40,3 +40,6 @@ Desktop.ini
 # Misc
 .cache/
 .vercel
+
+# Generated service worker (built from sw.template.js with the build ID)
+frontend/public/sw.js
