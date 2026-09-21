@@ -1,0 +1,174 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ==========================================================================
+   Bijayalakshmi Physiotherapy — Design System
+   Single source of truth. All components use these semantic tokens only.
+   ========================================================================== */
+
+:root {
+  /* Light — warm ivory, clean white surfaces, medical teal */
+  --background: 36 33% 96%;
+  --foreground: 215 22% 18%;
+  --card: 0 0% 100%;
+  --card-foreground: 215 22% 18%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 215 22% 18%;
+  --primary: 178 55% 32%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 178 24% 92%;
+  --secondary-foreground: 178 45% 22%;
+  --muted: 38 24% 92%;
+  --muted-foreground: 215 14% 42%;
+  --accent: 178 30% 88%;
+  --accent-foreground: 178 50% 20%;
+  --destructive: 4 72% 48%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 36 22% 87%;
+  --input: 36 22% 84%;
+  --ring: 178 55% 32%;
+  --radius: 0.75rem;
+  --shadow: 215 22% 18%;
+  /* Status hues */
+  --amber: 38 92% 45%;
+  --amber-soft: 44 90% 92%;
+  --blue: 212 80% 50%;
+  --blue-soft: 214 85% 93%;
+  --success: 168 60% 36%;
+  --success-soft: 165 45% 90%;
+  --danger-soft: 4 80% 93%;
+  --hero-glow: 178 60% 80%;
+}
+
+.dark {
+  /* Dark — deep navy-charcoal, never pure black. Calm + premium. */
+  --background: 210 28% 9%;
+  --foreground: 210 20% 93%;
+  --card: 212 26% 13%;
+  --card-foreground: 210 20% 93%;
+  --popover: 212 26% 15%;
+  --popover-foreground: 210 20% 93%;
+  --primary: 176 50% 48%;
+  --primary-foreground: 210 30% 8%;
+  --secondary: 212 24% 18%;
+  --secondary-foreground: 176 45% 72%;
+  --muted: 212 22% 16%;
+  --muted-foreground: 215 16% 66%;
+  --accent: 212 24% 20%;
+  --accent-foreground: 176 45% 78%;
+  --destructive: 4 70% 58%;
+  --destructive-foreground: 210 30% 8%;
+  --border: 212 20% 21%;
+  --input: 212 20% 24%;
+  --ring: 176 50% 48%;
+  --shadow: 210 40% 4%;
+  --amber: 40 85% 60%;
+  --amber-soft: 42 60% 18%;
+  --blue: 212 85% 68%;
+  --blue-soft: 214 60% 18%;
+  --success: 168 55% 55%;
+  --success-soft: 165 40% 16%;
+  --danger-soft: 4 55% 20%;
+  --hero-glow: 176 45% 32%;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  html {
+    -webkit-tap-highlight-color: transparent;
+    scroll-behavior: smooth;
+    /* iPad safe areas */
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display",
+      "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    min-height: 100dvh;
+    overscroll-behavior-y: none;
+  }
+  /* Accessible focus */
+  :focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+  ::selection {
+    background: hsl(var(--primary) / 0.22);
+  }
+  input[type="date"] {
+    min-height: 48px;
+  }
+}
+
+/* ---------- Motion language: 150–500ms, opacity/transform/scale ---------- */
+@layer utilities {
+  .anim-page-enter {
+    animation: fade-up 0.45s ease-out both;
+  }
+  .anim-card-enter {
+    animation: fade-up 0.4s ease-out both;
+  }
+  .anim-stagger > *:nth-child(1) { animation-delay: 0.04s; }
+  .anim-stagger > *:nth-child(2) { animation-delay: 0.1s; }
+  .anim-stagger > *:nth-child(3) { animation-delay: 0.16s; }
+  .anim-stagger > *:nth-child(4) { animation-delay: 0.22s; }
+  .anim-stagger > *:nth-child(5) { animation-delay: 0.28s; }
+  .anim-stagger > *:nth-child(6) { animation-delay: 0.34s; }
+
+  /* Hero flowing movement line */
+  .flow-line {
+    stroke-dasharray: 900;
+    animation: flow 7s ease-in-out infinite alternate;
+  }
+  .flow-line-slow {
+    stroke-dasharray: 1200;
+    animation: flow 11s ease-in-out infinite alternate-reverse;
+  }
+
+  .touch-target {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes flow {
+  from { stroke-dashoffset: 900; }
+  to { stroke-dashoffset: 0; }
+}
+
+/* ---------- Reduced motion: respect user preference ---------- */
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  .flow-line, .flow-line-slow { animation: none; }
+}
+
+/* ---------- Sonner toast theming ---------- */
+[data-sonner-toast] {
+  @apply bg-card text-card-foreground border-border;
+  border-radius: var(--radius);
+  box-shadow: 0 2px 4px hsl(var(--shadow) / 0.08), 0 12px 32px -8px hsl(var(--shadow) / 0.16);
+}
+
+/* ---------- Scrollbar (subtle, themed) ---------- */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted-foreground) / 0.28);
+  border-radius: 8px;
+  border: 2px solid hsl(var(--background));
+}
+::-webkit-scrollbar-thumb:hover { background: hsl(var(--muted-foreground) / 0.45); }
