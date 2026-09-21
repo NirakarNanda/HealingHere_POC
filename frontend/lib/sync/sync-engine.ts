@@ -31,6 +31,8 @@ interface SyncResultItem {
   localId: string;
   ok?: boolean;
   success?: boolean;
+  /** Backend contract: 'SYNCED' | 'FAILED' */
+  status?: string;
   serverId?: string;
   error?: string;
 }
@@ -131,7 +133,10 @@ export async function syncNow(): Promise<SyncSummary> {
     await Promise.all(
       queue.map(async (p) => {
         const result = byLocalId.get(p.localId);
-        const ok = result?.ok ?? result?.success ?? false;
+        // Backend contract uses `status: "SYNCED" | "FAILED"`; accept legacy
+        // `ok` / `success` booleans too.
+        const ok =
+          result?.ok ?? result?.success ?? (result?.status === "SYNCED");
         if (ok) {
           synced += 1;
           await updateSyncStatus(p.localId, {
