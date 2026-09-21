@@ -24,9 +24,13 @@ export default function PatientsPage() {
 
   async function handleDelete(patient: Patient): Promise<void> {
     try {
-      const outcome = await deletePatientRecord(patient);
+      const { outcome, sheetError } = await deletePatientRecord(patient);
       if (outcome === "queued") {
-        toast.success("Patient deleted · will remove from server when back online");
+        toast.warning(
+          sheetError
+            ? `Deleted on this device · sheet cleanup needs retry: ${sheetError}`
+            : "Patient deleted · will remove from server when back online"
+        );
       } else {
         toast.success("Patient deleted");
       }

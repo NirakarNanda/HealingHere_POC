@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { authApi, ApiError } from "@/lib/api/client";
+import { pullNow } from "@/lib/sync/sync-engine";
 
 /** Doctor login form. Credentials live only in the backend env — never here. */
 export function LoginForm() {
@@ -26,6 +27,17 @@ export function LoginForm() {
       toast.success("Welcome back, Doctor");
       router.replace("/dashboard");
       router.refresh();
+      // New device / fresh browser: pull existing records down in the
+      // background so the workspace isn't empty after sign-in.
+      pullNow()
+        .then(({ pulled }) => {
+          if (pulled > 0) {
+            toast.success(`Loaded ${pulled} patient record${pulled === 1 ? "" : "s"} from the server`);
+          }
+        })
+        .catch(() => {
+          toast.info("Signed in · couldn't reach the server, showing on-device records");
+        });
     } catch (err) {
       // Generic message — never reveal whether the username or password was wrong.
       setError(err instanceof ApiError && err.status === 401 ? "Invalid username or password" : "Invalid username or password");

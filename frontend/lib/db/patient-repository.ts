@@ -1,6 +1,7 @@
 import { db } from "./database";
 import type { PendingDelete } from "./database";
 import type { Patient, PatientFormValues, PatientSyncPatch } from "@/types/patient";
+import type { ServerPatient } from "@/lib/api/client";
 
 /**
  * The ONLY module that talks to IndexedDB. UI components must never import
@@ -69,6 +70,60 @@ export async function updatePatient(localId: string, values: Partial<PatientForm
 /** Remove the local record immediately — the doctor asked for it. */
 export async function deletePatientLocal(localId: string): Promise<void> {
   await db.patients.delete(localId);
+}
+
+/**
+ * Reconcile one server record into the local database (pull / sync-down).
+ *
+ * - No local record → insert as SYNCED (new device, or created elsewhere).
+ * - Local SYNCED record older than the server copy → update from server.
+ * - Local PENDING/FAILED/SYNCING → SKIPPED: unsynced local work always wins;
+ *   it will be pushed on the next sync. Never overwrite it with stale server data.
+ */
+export async function upsertPulledPatient(
+  server: ServerPatient
+): Promise<"inserted" | "updated" | "skipped"> {
+  const local = await db.patients.get(server.localId);
+  if (!local) {
+    const patient: Patient = {
+      localId: server.localId,
+      patientName: server.patientName,
+      dateOfBirth: server.dateOfBirth,
+      phone: server.phone,
+      gender: server.gender,
+      problem: server.problem,
+      injuryHistory: server.injuryHistory ?? "",
+      notes: server.notes ?? "",
+      remainingPayment: server.remainingPayment ?? 0,
+      createdAt: server.createdAt,
+      updatedAt: server.updatedAt,
+      syncStatus: "SYNCED",
+      syncAttempts: 0,
+      syncedAt: server.syncedAt ?? undefined,
+      serverId: server.id,
+      lastSyncError: undefined,
+    };
+    await db.patients.add(patient);
+    return "inserted";
+  }
+  if (local.syncStatus !== "SYNCED") return "skipped";
+  if (server.updatedAt <= local.updatedAt) return "skipped";
+  await db.patients.update(server.localId, {
+    patientName: server.patientName,
+    dateOfBirth: server.dateOfBirth,
+    phone: server.phone,
+    gender: server.gender,
+    problem: server.problem,
+    injuryHistory: server.injuryHistory ?? "",
+    notes: server.notes ?? "",
+    remainingPayment: server.remainingPayment ?? 0,
+    createdAt: server.createdAt,
+    updatedAt: server.updatedAt,
+    syncedAt: server.syncedAt ?? undefined,
+    serverId: server.id,
+    lastSyncError: undefined,
+  });
+  return "updated";
 }
 
 /** Queue a remote deletion (MongoDB + sheet row) to flush on next sync. */

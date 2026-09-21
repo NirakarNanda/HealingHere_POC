@@ -2,11 +2,13 @@ import { toast } from "sonner";
 import { ApiError, apiFetch, patientsApi } from "@/lib/api/client";
 import {
   deletePatientLocal,
+  getPatients,
   getPendingDeletes,
   getPendingPatients,
   queuePendingDelete,
   removePendingDelete,
   updateSyncStatus,
+  upsertPulledPatient,
 } from "@/lib/db/patient-repository";
 import type { Patient } from "@/types/patient";
 
@@ -169,11 +171,85 @@ export async function syncNow(): Promise<SyncSummary> {
   }
 }
 
-/** Fire-and-forget sync trigger — safe to call from event handlers. */
+/** Fire-and-forget full sync — safe to call from event handlers. */
 export function triggerSync(): void {
-  syncNow().catch(() => {
-    // syncNow already handles its own errors and toasts.
+  fullSync().catch(() => {
+    // fullSync already handles its own errors and toasts.
   });
+}
+
+export interface PullSummary {
+  pulled: number;
+  removed: number;
+}
+
+function isOffline(): boolean {
+  return typeof navigator !== "undefined" && !navigator.onLine;
+}
+
+/**
+ * Pull server records down (sync-down).
+ *
+ * This is what makes a second device (or a fresh browser) see existing
+ * data after login, and what propagates deletions made elsewhere:
+ * - Server records missing locally are inserted as SYNCED.
+ * - Local SYNCED records missing from the server were deleted elsewhere
+ *   and are removed locally.
+ * - Local PENDING/FAILED/SYNCING records are NEVER overwritten or deleted:
+ *   unsynced work always wins and will be pushed on the next sync.
+ *
+ * Throws on network/API failure so callers can message it appropriately.
+ */
+export async function pullNow(): Promise<PullSummary> {
+  if (syncInFlight) return { pulled: 0, removed: 0 };
+  if (isOffline()) {
+    throw new ApiError("You're offline — showing on-device records.", 0);
+  }
+  syncInFlight = true;
+  try {
+    const res = await patientsApi.listPatients();
+    const serverPatients = res.patients ?? [];
+    const serverIds = new Set(serverPatients.map((p) => p.localId));
+
+    let pulled = 0;
+    for (const sp of serverPatients) {
+      const result = await upsertPulledPatient(sp);
+      if (result !== "skipped") pulled += 1;
+    }
+
+    let removed = 0;
+    const locals = await getPatients();
+    for (const local of locals) {
+      if (local.syncStatus === "SYNCED" && !serverIds.has(local.localId)) {
+        await deletePatientLocal(local.localId);
+        removed += 1;
+      }
+    }
+    return { pulled, removed };
+  } finally {
+    syncInFlight = false;
+  }
+}
+
+/**
+ * Full two-way sync: push local changes, then pull server changes.
+ * Shows feedback toasts; safe to call from anywhere.
+ */
+export async function fullSync(): Promise<void> {
+  await syncNow();
+  if (isOffline()) return;
+  try {
+    const { pulled, removed } = await pullNow();
+    if (pulled > 0 || removed > 0) {
+      const parts: string[] = [];
+      if (pulled > 0) parts.push(`${pulled} record${pulled === 1 ? "" : "s"} loaded`);
+      if (removed > 0) parts.push(`${removed} removed elsewhere`);
+      toast.success(`Synced with server · ${parts.join(" · ")}`);
+    }
+  } catch {
+    // Pull is best-effort after a push; push results were already toasted.
+    // The next sync will retry the pull.
+  }
 }
 
 /**
@@ -202,32 +278,42 @@ async function flushPendingDeletes(): Promise<void> {
 
 export type DeleteRemoteOutcome = "deleted" | "queued" | "local-only";
 
+export interface DeleteResult {
+  outcome: DeleteRemoteOutcome;
+  /**
+   * Present when the server removed the record but the Google Sheet row
+   * removal failed — the deletion stays queued for retry, and the caller
+   * should show this reason instead of a generic message.
+   */
+  sheetError?: string;
+}
+
 /**
  * Delete a patient everywhere: local record goes immediately (the doctor's
  * explicit intent), then the backend + sheet row. When offline or the
  * remote call fails, the deletion is queued and flushed by the next sync.
  */
-export async function deletePatientRecord(patient: Patient): Promise<DeleteRemoteOutcome> {
+export async function deletePatientRecord(patient: Patient): Promise<DeleteResult> {
   const mayExistRemotely = Boolean(patient.serverId) || patient.syncStatus !== "PENDING";
 
   // Local first — never lose the doctor's intent.
   await deletePatientLocal(patient.localId);
 
-  if (!mayExistRemotely) return "local-only";
+  if (!mayExistRemotely) return { outcome: "local-only" };
 
   if (typeof navigator !== "undefined" && !navigator.onLine) {
     await queuePendingDelete(patient.localId);
-    return "queued";
+    return { outcome: "queued" };
   }
 
   try {
     const res = await patientsApi.deletePatient(patient.localId);
-    if (res.sheetDeleted) return "deleted";
+    if (res.sheetDeleted) return { outcome: "deleted" };
     await queuePendingDelete(patient.localId);
-    return "queued";
+    return { outcome: "queued", sheetError: res.sheetError };
   } catch (err) {
-    if (err instanceof ApiError && err.status === 404) return "deleted";
+    if (err instanceof ApiError && err.status === 404) return { outcome: "deleted" };
     await queuePendingDelete(patient.localId);
-    return "queued";
+    return { outcome: "queued" };
   }
 }

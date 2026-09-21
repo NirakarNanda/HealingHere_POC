@@ -66,9 +66,28 @@ export interface DeletePatientResponse {
   sheetError?: string;
 }
 
+/** Patient as returned by GET /api/patients (MongoDB is the source of truth here). */
+export interface ServerPatient {
+  id: string;
+  localId: string;
+  patientName: string;
+  dateOfBirth: string;
+  phone: string;
+  gender: string;
+  problem: string;
+  injuryHistory: string;
+  notes: string;
+  remainingPayment: number;
+  createdAt: string;
+  updatedAt: string;
+  syncedAt: string | null;
+}
+
 export const patientsApi = {
   deletePatient: (localId: string) =>
     apiFetch<DeletePatientResponse>(`/patients/${encodeURIComponent(localId)}`, {
       method: "DELETE",
     }),
+  listPatients: () =>
+    apiFetch<{ success: boolean; patients: ServerPatient[] }>("/patients"),
 };

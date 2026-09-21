@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/lib/db/database";
-import { syncNow, isSyncing, triggerSync } from "@/lib/sync/sync-engine";
+import { fullSync, isSyncing, triggerSync } from "@/lib/sync/sync-engine";
 import { useOnlineStatus } from "./use-online-status";
 
 /**
@@ -28,7 +28,7 @@ export function useSync() {
     if (isSyncing()) return;
     setSyncing(true);
     try {
-      await syncNow();
+      await fullSync();
     } finally {
       setSyncing(false);
     }
