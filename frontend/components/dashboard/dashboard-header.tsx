@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
-import { Activity, LayoutDashboard, LogOut, Plus, RefreshCw, Users } from "lucide-react";
+import { LayoutDashboard, LogOut, Plus, RefreshCw, Users } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -62,13 +63,17 @@ export function DashboardHeader({ onAddPatient }: { onAddPatient: () => void }) 
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-background/85 backdrop-blur-md">
       <div className="mx-auto flex h-[72px] max-w-6xl items-center gap-3 px-4 sm:px-6">
-        <Link href="/dashboard" className="flex min-w-0 items-center gap-3 rounded-md" aria-label="Bijayalakshmi Physiotherapy — home">
-          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-soft" aria-hidden>
-            <Activity className="h-5 w-5" />
-          </span>
+        <Link href="/dashboard" className="flex min-w-0 items-center gap-3 rounded-md" aria-label="Bijayalakshmi Physiotherapy Clinic — home">
+          <Image
+            src="/logo-emblem.png"
+            alt="Bijayalakshmi Physiotherapy Clinic logo"
+            width={40}
+            height={40}
+            className="h-10 w-10 shrink-0 rounded-xl object-cover shadow-soft ring-1 ring-border"
+          />
           <span className="hidden min-w-0 md:block">
             <span className="block truncate text-[15px] font-semibold leading-tight text-foreground">
-              Bijayalakshmi Physiotherapy
+              Bijayalakshmi Physiotherapy Clinic
             </span>
             <span className="block text-xs text-muted-foreground">Dr. Abhilash Nanda</span>
           </span>

@@ -27,7 +27,7 @@ export function Hero() {
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-60" />
               <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
             </span>
-            Bijayalakshmi Physiotherapy · Dr. Abhilash Nanda
+            Bijayalakshmi Physiotherapy Clinic · Dr. Abhilash Nanda
           </p>
 
           <h1

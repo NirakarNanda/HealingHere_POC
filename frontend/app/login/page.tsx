@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { Activity, ArrowLeft, ShieldCheck } from "lucide-react";
+import { ArrowLeft, ShieldCheck } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -44,11 +45,16 @@ export default function LoginPage() {
       <main className="flex flex-1 items-center justify-center px-4 pb-16">
         <div className="anim-page-enter w-full max-w-md">
           <div className="mb-8 flex flex-col items-center text-center">
-            <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-lift" aria-hidden>
-              <Activity className="h-7 w-7" />
-            </span>
+            <Image
+              src="/logo-emblem.png"
+              alt="Bijayalakshmi Physiotherapy Clinic logo"
+              width={56}
+              height={56}
+              className="h-14 w-14 rounded-2xl object-cover shadow-lift ring-1 ring-border"
+              priority
+            />
             <h1 className="mt-5 text-2xl font-semibold tracking-tight text-foreground">
-              Bijayalakshmi Physiotherapy
+              Bijayalakshmi Physiotherapy Clinic
             </h1>
             <p className="mt-1.5 text-sm text-muted-foreground">Dr. Abhilash Nanda · Doctor sign in</p>
           </div>

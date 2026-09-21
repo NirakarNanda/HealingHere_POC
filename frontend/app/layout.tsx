@@ -16,11 +16,11 @@ const fraunces = Fraunces({
 
 export const metadata: Metadata = {
   title: {
-    default: "Bijayalakshmi Physiotherapy",
-    template: "%s · Bijayalakshmi Physiotherapy",
+    default: "Bijayalakshmi Physiotherapy Clinic",
+    template: "%s · Bijayalakshmi Physiotherapy Clinic",
   },
   description:
-    "Bijayalakshmi Physiotherapy — restoring movement, rebuilding confidence. Care by Dr. Abhilash Nanda.",
+    "Bijayalakshmi Physiotherapy Clinic — restoring movement, rebuilding confidence. Care by Dr. Abhilash Nanda.",
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
