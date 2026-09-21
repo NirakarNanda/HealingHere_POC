@@ -46,6 +46,7 @@ export async function syncPatients(req: Request, res: Response): Promise<void> {
             problem: patient.problem,
             injuryHistory: patient.injuryHistory,
             notes: patient.notes,
+            remainingPayment: patient.remainingPayment ?? 0,
             updatedAt: new Date(patient.updatedAt),
             syncedAt: new Date(),
           },

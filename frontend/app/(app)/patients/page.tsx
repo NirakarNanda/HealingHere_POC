@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { toast } from "sonner";
 import { SearchX } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -8,6 +9,7 @@ import { PatientSearch } from "@/components/patients/patient-search";
 import { PatientCard, PatientTable } from "@/components/patients/patient-list";
 import { PatientDetails } from "@/components/patients/patient-details";
 import { usePatientSearch } from "@/hooks/use-patients";
+import { deletePatientRecord } from "@/lib/sync/sync-engine";
 import type { Patient } from "@/types/patient";
 
 export default function PatientsPage() {
@@ -16,6 +18,20 @@ export default function PatientsPage() {
   const results = usePatientSearch(query);
 
   const loading = results === undefined;
+
+  async function handleDelete(patient: Patient): Promise<void> {
+    try {
+      const outcome = await deletePatientRecord(patient);
+      if (outcome === "queued") {
+        toast.success("Patient deleted · will remove from server when back online");
+      } else {
+        toast.success("Patient deleted");
+      }
+    } catch {
+      toast.error("Could not delete the patient. Please try again.");
+      throw new Error("delete-failed");
+    }
+  }
 
   return (
     <div className="anim-page-enter">
@@ -78,6 +94,7 @@ export default function PatientsPage() {
         onOpenChange={(open) => {
           if (!open) setSelected(null);
         }}
+        onDelete={handleDelete}
       />
     </div>
   );

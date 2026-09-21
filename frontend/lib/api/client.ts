@@ -53,3 +53,17 @@ export const authApi = {
     apiFetch<{ success: boolean }>("/auth/login", { method: "POST", body: { username, password } }),
   logout: () => apiFetch<{ success: boolean }>("/auth/logout", { method: "POST" }),
 };
+
+export interface DeletePatientResponse {
+  success: boolean;
+  mongoDeleted: boolean;
+  sheetDeleted: boolean;
+  sheetError?: string;
+}
+
+export const patientsApi = {
+  deletePatient: (localId: string) =>
+    apiFetch<DeletePatientResponse>(`/patients/${encodeURIComponent(localId)}`, {
+      method: "DELETE",
+    }),
+};

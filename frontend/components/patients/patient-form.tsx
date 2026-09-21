@@ -19,6 +19,7 @@ interface FieldErrors {
   phone?: string;
   gender?: string;
   problem?: string;
+  remainingPayment?: string;
 }
 
 const GENDERS = ["Male", "Female", "Other"] as const;
@@ -40,6 +41,10 @@ function validate(values: PatientFormValues): FieldErrors {
   else if (digits.length < 10) errors.phone = "Please enter at least 10 digits.";
 
   if (!values.gender) errors.gender = "Please select a gender.";
+
+  if (!Number.isFinite(values.remainingPayment) || values.remainingPayment < 0) {
+    errors.remainingPayment = "Enter 0 or more.";
+  }
 
   if (!values.problem.trim()) errors.problem = "Please describe the problem or chief complaint.";
   return errors;
@@ -67,6 +72,7 @@ export function PatientForm({ onSaved }: { onSaved?: () => void }) {
     problem: "",
     injuryHistory: "",
     notes: "",
+    remainingPayment: 0,
   });
   const [errors, setErrors] = useState<FieldErrors>({});
   const [saving, setSaving] = useState(false);
@@ -155,7 +161,7 @@ export function PatientForm({ onSaved }: { onSaved?: () => void }) {
           <FieldError message={errors.phone} />
         </div>
 
-        <div className="space-y-2 sm:col-span-2">
+        <div className="space-y-2">
           <Label htmlFor="gender">Gender *</Label>
           <Select
             value={values.gender || undefined}
@@ -174,6 +180,27 @@ export function PatientForm({ onSaved }: { onSaved?: () => void }) {
             </SelectContent>
           </Select>
           <FieldError message={errors.gender} />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="remainingPayment">Remaining payment (₹)</Label>
+          <Input
+            id="remainingPayment"
+            type="number"
+            inputMode="decimal"
+            min="0"
+            step="1"
+            placeholder="0"
+            value={values.remainingPayment || ""}
+            onChange={(e) => {
+              const raw = e.target.value;
+              setValues((v) => ({ ...v, remainingPayment: raw === "" ? 0 : Number(raw) }));
+              setErrors((prev) => ({ ...prev, remainingPayment: undefined }));
+            }}
+            aria-invalid={!!errors.remainingPayment}
+            className={inputClass(errors.remainingPayment)}
+          />
+          <FieldError message={errors.remainingPayment} />
         </div>
 
         <div className="space-y-2 sm:col-span-2">

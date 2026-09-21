@@ -1,4 +1,5 @@
 import { db } from "./database";
+import type { PendingDelete } from "./database";
 import type { Patient, PatientFormValues, PatientSyncPatch } from "@/types/patient";
 
 /**
@@ -63,6 +64,24 @@ export async function updateSyncStatus(localId: string, patch: PatientSyncPatch)
 
 export async function updatePatient(localId: string, values: Partial<PatientFormValues>): Promise<void> {
   await db.patients.update(localId, { ...values, updatedAt: nowIso() });
+}
+
+/** Remove the local record immediately — the doctor asked for it. */
+export async function deletePatientLocal(localId: string): Promise<void> {
+  await db.patients.delete(localId);
+}
+
+/** Queue a remote deletion (MongoDB + sheet row) to flush on next sync. */
+export async function queuePendingDelete(localId: string): Promise<void> {
+  await db.pendingDeletes.put({ localId, deletedAt: nowIso() });
+}
+
+export async function getPendingDeletes(): Promise<PendingDelete[]> {
+  return db.pendingDeletes.toArray();
+}
+
+export async function removePendingDelete(localId: string): Promise<void> {
+  await db.pendingDeletes.delete(localId);
 }
 
 export async function countByStatus(status: Patient["syncStatus"]): Promise<number> {

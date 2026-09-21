@@ -14,6 +14,8 @@ export interface Patient {
   problem: string;
   injuryHistory: string;
   notes: string;
+  /** ₹ still owed by the patient */
+  remainingPayment: number;
 
   /** ISO datetime strings */
   createdAt: string;
@@ -23,6 +25,8 @@ export interface Patient {
   syncAttempts: number;
   lastSyncAttempt?: string;
   syncedAt?: string;
+  /** Last backend/sheet error, shown on the detail view when sync FAILED. */
+  lastSyncError?: string;
 
   /** Backend MongoDB _id, set once the record syncs. */
   serverId?: string;
@@ -31,9 +35,12 @@ export interface Patient {
 /** Fields the doctor enters on the patient form. */
 export type PatientFormValues = Pick<
   Patient,
-  "patientName" | "dateOfBirth" | "phone" | "gender" | "problem" | "injuryHistory" | "notes"
+  "patientName" | "dateOfBirth" | "phone" | "gender" | "problem" | "injuryHistory" | "notes" | "remainingPayment"
 >;
 
 export type PatientSyncPatch = Partial<
   Pick<Patient, "syncStatus" | "syncAttempts" | "lastSyncAttempt" | "syncedAt" | "serverId" | "updatedAt">
->;
+> & {
+  /** Last backend/sheet error, shown on the detail view when sync FAILED. */
+  lastSyncError?: string;
+};

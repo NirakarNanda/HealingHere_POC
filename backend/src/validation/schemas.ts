@@ -27,6 +27,8 @@ export const patientPayloadSchema = z.object({
   problem: z.string().trim().min(2, 'Problem / chief complaint must be at least 2 characters'),
   injuryHistory: z.string().default(''),
   notes: z.string().default(''),
+  /** ₹ still owed by the patient. Optional for old clients — defaults to 0. */
+  remainingPayment: z.number().min(0, 'Remaining payment cannot be negative').default(0),
   createdAt: z.string().datetime({ offset: true, message: 'createdAt must be an ISO date string' }),
   updatedAt: z.string().datetime({ offset: true, message: 'updatedAt must be an ISO date string' }),
 });

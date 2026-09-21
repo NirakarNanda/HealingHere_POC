@@ -8,6 +8,7 @@ import type { Request, Response } from 'express';
 import { isValidObjectId } from 'mongoose';
 import { getDbState } from '../config/db';
 import { Patient } from '../models/Patient';
+import { deletePatientFromSheet } from '../services/appsScriptService';
 import type { PatientPayloadInput } from '../validation/schemas';
 
 function dbUnavailable(res: Response): boolean {
@@ -32,6 +33,7 @@ function toApiPatient(doc: Record<string, unknown>) {
     problem: doc.problem,
     injuryHistory: doc.injuryHistory ?? '',
     notes: doc.notes ?? '',
+    remainingPayment: doc.remainingPayment ?? 0,
     createdAt: doc.createdAt,
     updatedAt: doc.updatedAt,
     syncedAt: doc.syncedAt ?? null,
@@ -77,6 +79,7 @@ export async function createPatient(req: Request, res: Response): Promise<void> 
         problem: payload.problem,
         injuryHistory: payload.injuryHistory,
         notes: payload.notes,
+        remainingPayment: payload.remainingPayment ?? 0,
         updatedAt: new Date(payload.updatedAt),
       },
       $setOnInsert: { createdAt: new Date(payload.createdAt) },
@@ -111,4 +114,43 @@ export async function updatePatient(req: Request, res: Response): Promise<void> 
     return;
   }
   res.status(200).json({ success: true, patient: toApiPatient(doc as Record<string, unknown>) });
+}
+
+/**
+ * DELETE /api/patients/:id — delete by _id or localId, then remove the
+ * matching sheet row (keyed by localId) via Apps Script.
+ *
+ * The MongoDB delete always goes through; the sheet result is reported
+ * separately so the caller can retry the sheet removal later. Deleting a
+ * localId that no longer exists remotely is treated as success for the
+ * sheet step (idempotent — the row is already gone).
+ */
+export async function deletePatient(req: Request, res: Response): Promise<void> {
+  if (dbUnavailable(res)) return;
+  const { id } = req.params;
+
+  const filter = isValidObjectId(id) ? { _id: id } : { localId: id };
+  const doc = await Patient.findOneAndDelete(filter).lean();
+
+  // Always attempt the sheet delete by localId — even when the Mongo
+  // document is already gone, the sheet row may still exist.
+  const localId = doc ? String((doc as Record<string, unknown>).localId) : String(id);
+  const sheetResult = await deletePatientFromSheet(localId);
+
+  if (!doc) {
+    res.status(200).json({
+      success: true,
+      mongoDeleted: false,
+      sheetDeleted: sheetResult.ok,
+      ...(sheetResult.ok ? {} : { sheetError: sheetResult.error }),
+    });
+    return;
+  }
+
+  res.status(200).json({
+    success: true,
+    mongoDeleted: true,
+    sheetDeleted: sheetResult.ok,
+    ...(sheetResult.ok ? {} : { sheetError: sheetResult.error }),
+  });
 }

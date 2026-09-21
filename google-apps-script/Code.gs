@@ -10,13 +10,19 @@
  *  1. Create a Google Sheet (any name, e.g. "Bijayalakshmi Physiotherapy").
  *  2. Copy the spreadsheet ID from the sheet URL:
  *       https://docs.google.com/spreadsheets/d/<SPREADSHEET_ID>/edit
- *  3. Paste it into SPREADSHEET_ID below.
+ *  3. Paste it into SPREADSHEET_ID below (replace the placeholder!).
+ *     If the placeholder is left in place, EVERY sync will fail with
+ *     "Server error" and patient records will show FAILED in the app.
  *  4. In the script editor: Deploy -> New deployment -> Web app.
  *       Execute as: Me
- *       Who has access: Anyone
- *  5. Copy the Web app URL (ends in /exec) into the backend .env as
+ *       Who has access: Anyone   <- this is the setting that matters.
+ *       (Sharing the *spreadsheet* with "anyone" does NOT fix sync —
+ *        the backend talks to the *script deployment*, not the sheet.)
+ *  5. Copy the Web app URL (ends in /exec) into the backend env as
  *       APPS_SCRIPT_URL=<web app url>
- *  6. Test: curl -sL "<web app url>"  -> {"success":true,"service":"..."}
+ *  6. Test in a browser: open the /exec URL ->
+ *       {"success":true,"service":"Bijayalakshmi Physiotherapy Sync"}
+ *     If you see a Google sign-in page instead, step 4's "Anyone" is wrong.
  *
  * IMPORTANT: after every code change, Deploy -> Manage deployments ->
  * edit the deployment -> New version, otherwise the live /exec URL keeps
@@ -38,7 +44,8 @@ var HEADERS = [
   'notes',
   'createdAt',
   'updatedAt',
-  'syncedAt'
+  'syncedAt',
+  'remainingPayment'
 ];
 
 /* ------------------------------------------------------------------ */
@@ -57,14 +64,14 @@ function doGet(e) {
 }
 
 /**
- * Patient upsert. POST <web app url> with a JSON body.
+ * Patient upsert / delete. POST <web app url> with a JSON body.
  *
- * Accepts either shape:
- *   { "action": "upsertPatient", "patient": { ... } }   <- what the backend sends
- *   { "localId": "...", "patientName": "...", ... }     <- bare patient object
+ * Actions:
+ *   { "action": "upsertPatient", "patient": { ... } }  <- what the backend sends for sync
+ *   { "action": "deletePatient", "localId": "..." }     <- backend sends on patient delete
+ *   { "localId": "...", "patientName": "...", ... }     <- bare patient object (upsert)
  *
- * Always answers JSON: {success:true, action:"inserted"|"updated", localId}
- * or {success:false, error:"..."}.
+ * Always answers JSON: {success:true, ...} or {success:false, error:"..."}.
  */
 function doPost(e) {
   var lock = LockService.getScriptLock();
@@ -74,7 +81,7 @@ function doPost(e) {
     if (!e || !e.postData || !e.postData.contents) {
       return jsonResponse_({
         success: false,
-        error: 'Empty request body — expected a JSON patient payload.'
+        error: 'Empty request body — expected a JSON payload.'
       });
     }
 
@@ -88,6 +95,26 @@ function doPost(e) {
       });
     }
 
+    var action = body && body.action ? String(body.action) : 'upsertPatient';
+
+    // Serialize concurrent writes so two simultaneous syncs for the same
+    // localId cannot both decide "not found" and append duplicate rows.
+    lockAcquired = lock.tryLock(10000);
+    if (!lockAcquired) {
+      return jsonResponse_({
+        success: false,
+        error: 'Server busy — could not acquire the write lock. Please retry.'
+      });
+    }
+
+    if (action === 'deletePatient') {
+      var deleteLocalId = body.localId || (body.patient && body.patient.localId);
+      if (!deleteLocalId) {
+        return jsonResponse_({ success: false, error: 'Missing required field: localId.' });
+      }
+      return jsonResponse_(deletePatient_(String(deleteLocalId)));
+    }
+
     // Accept the wrapped envelope from the backend or a bare patient object.
     var patient = body && body.patient ? body.patient : body;
 
@@ -99,16 +126,6 @@ function doPost(e) {
     }
     if (!patient.patientName) {
       return jsonResponse_({ success: false, error: 'Missing required field: patientName.' });
-    }
-
-    // Serialize concurrent writes so two simultaneous syncs for the same
-    // localId cannot both decide "not found" and append duplicate rows.
-    lockAcquired = lock.tryLock(10000);
-    if (!lockAcquired) {
-      return jsonResponse_({
-        success: false,
-        error: 'Server busy — could not acquire the write lock. Please retry.'
-      });
     }
 
     var result = upsertPatient_(patient);
@@ -135,7 +152,7 @@ function doPost(e) {
  */
 function upsertPatient_(patient) {
   var sheet = getOrCreateSheet_();
-  ensureHeaderRow_(sheet);
+  ensureHeaders_(sheet);
 
   var localId = String(patient.localId);
   var rowNumber = findRowByLocalId_(sheet, localId);
@@ -159,6 +176,24 @@ function upsertPatient_(patient) {
   return { success: true, action: action, localId: localId };
 }
 
+/**
+ * Delete the row whose column A equals localId. "Not found" is reported as
+ * success with action "not_found" so retries stay idempotent — the row is
+ * already gone, which is the desired end state.
+ */
+function deletePatient_(localId) {
+  var sheet = getOrCreateSheet_();
+  ensureHeaders_(sheet);
+
+  var rowNumber = findRowByLocalId_(sheet, localId);
+  if (rowNumber > 0) {
+    sheet.deleteRow(rowNumber);
+    SpreadsheetApp.flush();
+    return { success: true, action: 'deleted', localId: localId };
+  }
+  return { success: true, action: 'not_found', localId: localId };
+}
+
 function getOrCreateSheet_() {
   var spreadsheet = SpreadsheetApp.openById(SPREADSHEET_ID);
   var sheet = spreadsheet.getSheetByName(SHEET_NAME);
@@ -168,11 +203,24 @@ function getOrCreateSheet_() {
   return sheet;
 }
 
-function ensureHeaderRow_(sheet) {
+/**
+ * Writes the header row on a fresh sheet, and migrates an existing sheet
+ * when new columns (e.g. remainingPayment) were added to HEADERS later:
+ * missing headers are appended so old rows keep their columns aligned.
+ */
+function ensureHeaders_(sheet) {
   if (sheet.getLastRow() === 0) {
     sheet.appendRow(HEADERS);
     sheet.setFrozenRows(1);
     sheet.getRange(1, 1, 1, HEADERS.length).setFontWeight('bold');
+    return;
+  }
+  var existing = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0]
+    .map(function (h) { return String(h); });
+  var missing = HEADERS.filter(function (h) { return existing.indexOf(h) === -1; });
+  if (missing.length > 0) {
+    sheet.getRange(1, existing.length + 1, 1, missing.length).setValues([missing]);
+    sheet.getRange(1, 1, 1, existing.length + missing.length).setFontWeight('bold');
   }
 }
 
@@ -221,6 +269,7 @@ function testUpsert_() {
           problem: 'Script self-test',
           injuryHistory: '',
           notes: 'Created by testUpsert_ — safe to delete this row.',
+          remainingPayment: 500,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
           syncedAt: new Date().toISOString()

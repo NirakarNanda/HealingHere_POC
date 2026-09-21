@@ -22,6 +22,7 @@ const patientSchema = new mongoose.Schema(
     problem: { type: String, required: true, trim: true },
     injuryHistory: { type: String, default: '' },
     notes: { type: String, default: '' },
+    remainingPayment: { type: Number, default: 0, min: 0 }, // ₹ still owed by the patient
     syncedAt: { type: Date, required: false },
   },
   {

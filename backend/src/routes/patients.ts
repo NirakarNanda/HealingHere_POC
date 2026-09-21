@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import {
   createPatient,
+  deletePatient,
   getPatient,
   listPatients,
   updatePatient,
@@ -17,5 +18,6 @@ router.get('/', listPatients);
 router.get('/:id', getPatient);
 router.post('/', validate(patientPayloadSchema), createPatient);
 router.put('/:id', validate(patientPayloadSchema), updatePatient);
+router.delete('/:id', deletePatient);
 
 export default router;

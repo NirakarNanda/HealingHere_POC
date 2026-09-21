@@ -11,6 +11,8 @@ export interface PatientPayload {
   problem: string;
   injuryHistory: string;
   notes: string;
+  /** ₹ still owed by the patient */
+  remainingPayment: number;
   createdAt: string; // ISO 8601
   updatedAt: string; // ISO 8601
 }

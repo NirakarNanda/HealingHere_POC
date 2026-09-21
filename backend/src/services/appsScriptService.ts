@@ -21,41 +21,12 @@ export interface AppsScriptResult {
   error?: string;
 }
 
-interface SheetPatient {
-  localId: string;
-  patientName: string;
-  dateOfBirth: string;
-  phone: string;
-  gender: string;
-  problem: string;
-  injuryHistory: string;
-  notes: string;
-  createdAt: string;
-  updatedAt: string;
-  syncedAt: string;
-}
-
-export async function pushPatientToSheet(
-  patient: PatientPayload & { syncedAt: string },
-): Promise<AppsScriptResult> {
+/** Shared POST helper: timeout, non-2xx and {success:false} all become errors. Never throws. */
+async function postToAppsScript(body: unknown): Promise<AppsScriptResult> {
   if (!env.appsScriptUrl) {
     // Dev mode: no Apps Script configured — Sheets step treated as satisfied.
     return { ok: true, skipped: true };
   }
-
-  const payload: SheetPatient = {
-    localId: patient.localId,
-    patientName: patient.patientName,
-    dateOfBirth: patient.dateOfBirth,
-    phone: patient.phone,
-    gender: patient.gender,
-    problem: patient.problem,
-    injuryHistory: patient.injuryHistory,
-    notes: patient.notes,
-    createdAt: patient.createdAt,
-    updatedAt: patient.updatedAt,
-    syncedAt: patient.syncedAt,
-  };
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), APPS_SCRIPT_TIMEOUT_MS);
@@ -64,7 +35,7 @@ export async function pushPatientToSheet(
     const response = await fetch(env.appsScriptUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'upsertPatient', patient: payload }),
+      body: JSON.stringify(body),
       signal: controller.signal,
     });
 
@@ -106,4 +77,53 @@ export async function pushPatientToSheet(
   } finally {
     clearTimeout(timer);
   }
+}
+
+interface SheetPatient {
+  localId: string;
+  patientName: string;
+  dateOfBirth: string;
+  phone: string;
+  gender: string;
+  problem: string;
+  injuryHistory: string;
+  notes: string;
+  remainingPayment: number;
+  createdAt: string;
+  updatedAt: string;
+  syncedAt: string;
+}
+
+export async function pushPatientToSheet(
+  patient: PatientPayload & { syncedAt: string },
+): Promise<AppsScriptResult> {
+  if (!env.appsScriptUrl) {
+    // Dev mode: no Apps Script configured — Sheets step treated as satisfied.
+    return { ok: true, skipped: true };
+  }
+
+  const payload: SheetPatient = {
+    localId: patient.localId,
+    patientName: patient.patientName,
+    dateOfBirth: patient.dateOfBirth,
+    phone: patient.phone,
+    gender: patient.gender,
+    problem: patient.problem,
+    injuryHistory: patient.injuryHistory,
+    notes: patient.notes,
+    remainingPayment: patient.remainingPayment ?? 0,
+    createdAt: patient.createdAt,
+    updatedAt: patient.updatedAt,
+    syncedAt: patient.syncedAt,
+  };
+
+  return postToAppsScript({ action: 'upsertPatient', patient: payload });
+}
+
+/**
+ * Delete the sheet row for a localId. The script treats "row not found" as
+ * success (idempotent), so retries are always safe. Never throws.
+ */
+export async function deletePatientFromSheet(localId: string): Promise<AppsScriptResult> {
+  return postToAppsScript({ action: 'deletePatient', localId });
 }

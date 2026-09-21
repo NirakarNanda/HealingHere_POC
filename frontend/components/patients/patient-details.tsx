@@ -1,6 +1,7 @@
 "use client";
 
-import { RefreshCw } from "lucide-react";
+import { useState } from "react";
+import { RefreshCw, Trash2 } from "lucide-react";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -23,6 +24,11 @@ function formatDob(iso: string): string {
     : d.toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" });
 }
 
+function formatINR(amount?: number): string {
+  if (amount === undefined || amount === null || Number.isNaN(amount)) return "—";
+  return `₹${amount.toLocaleString("en-IN")}`;
+}
+
 function Field({ label, value }: { label: string; value?: string }) {
   return (
     <div className="space-y-1">
@@ -40,13 +46,37 @@ export function PatientDetails({
   patient,
   open,
   onOpenChange,
+  onDelete,
 }: {
   patient: Patient | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** Called when the doctor confirms deletion. Should delete everywhere and toast. */
+  onDelete?: (patient: Patient) => Promise<void>;
 }) {
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  async function handleDelete() {
+    if (!patient || !onDelete) return;
+    setDeleting(true);
+    try {
+      await onDelete(patient);
+      setConfirmingDelete(false);
+      onOpenChange(false);
+    } finally {
+      setDeleting(false);
+    }
+  }
+
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
+    <Sheet
+      open={open}
+      onOpenChange={(next) => {
+        if (!next) setConfirmingDelete(false);
+        onOpenChange(next);
+      }}
+    >
       <SheetContent side="right" className="sm:max-w-lg" aria-describedby={undefined}>
         {patient && (
           <>
@@ -65,6 +95,7 @@ export function PatientDetails({
                 <Field label="Phone" value={patient.phone} />
                 <Field label="Gender" value={patient.gender} />
                 <Field label="Date of birth" value={formatDob(patient.dateOfBirth)} />
+                <Field label="Remaining payment" value={formatINR(patient.remainingPayment)} />
                 <Field label="Last updated" value={formatDateTime(patient.updatedAt)} />
               </dl>
 
@@ -102,17 +133,69 @@ export function PatientDetails({
                   )}
                 </dl>
                 {patient.syncStatus === "FAILED" && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="mt-4"
-                    onClick={() => triggerSync()}
-                  >
-                    <RefreshCw className="h-4 w-4" aria-hidden />
-                    Retry sync
-                  </Button>
+                  <>
+                    {patient.lastSyncError && (
+                      <p className="mt-3 rounded-md bg-destructive/10 px-3 py-2 text-[13px] leading-relaxed text-destructive">
+                        {patient.lastSyncError}
+                      </p>
+                    )}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="mt-4"
+                      onClick={() => triggerSync()}
+                    >
+                      <RefreshCw className="h-4 w-4" aria-hidden />
+                      Retry sync
+                    </Button>
+                  </>
                 )}
               </div>
+
+              <Separator />
+
+              {/* Danger zone */}
+              {!confirmingDelete ? (
+                <Button
+                  variant="outline"
+                  className="w-full border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                  onClick={() => setConfirmingDelete(true)}
+                >
+                  <Trash2 className="h-4 w-4" aria-hidden />
+                  Delete patient
+                </Button>
+              ) : (
+                <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-4">
+                  <p className="text-sm font-medium text-foreground">
+                    Delete {patient.patientName} permanently?
+                  </p>
+                  <p className="mt-1 text-[13px] leading-relaxed text-muted-foreground">
+                    This removes the record from this device, the clinic server and the Google Sheet.
+                    This cannot be undone.
+                  </p>
+                  <div className="mt-3 flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex-1"
+                      disabled={deleting}
+                      onClick={() => setConfirmingDelete(false)}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      className="flex-1"
+                      disabled={deleting}
+                      onClick={handleDelete}
+                    >
+                      <Trash2 className="h-4 w-4" aria-hidden />
+                      {deleting ? "Deleting…" : "Yes, delete"}
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
           </>
         )}
