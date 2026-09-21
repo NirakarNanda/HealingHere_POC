@@ -1,9 +1,14 @@
 /**
  * Typed fetch wrapper for the backend REST API.
  * Cookie-based session (credentials: "include"); no tokens in JS.
+ *
+ * Same-origin by default: /api/* is proxied to the backend by a Next.js
+ * rewrite (see next.config.mjs), so the session cookie is first-party and
+ * is never blocked as a third-party cookie. NEXT_PUBLIC_API_URL remains as
+ * an escape hatch for pointing at a backend directly (e.g. local debugging
+ * without the proxy).
  */
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5000/api";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "/api";
 
 export class ApiError extends Error {
   status: number;
