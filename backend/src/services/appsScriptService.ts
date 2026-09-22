@@ -82,7 +82,7 @@ async function postToAppsScript(body: unknown): Promise<AppsScriptResult> {
 interface SheetPatient {
   localId: string;
   patientName: string;
-  dateOfBirth: string;
+  age: number;
   phone: string;
   gender: string;
   problem: string;
@@ -105,7 +105,7 @@ export async function pushPatientToSheet(
   const payload: SheetPatient = {
     localId: patient.localId,
     patientName: patient.patientName,
-    dateOfBirth: patient.dateOfBirth,
+    age: patient.age,
     phone: patient.phone,
     gender: patient.gender,
     problem: patient.problem,

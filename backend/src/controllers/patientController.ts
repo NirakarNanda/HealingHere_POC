@@ -22,12 +22,30 @@ function dbUnavailable(res: Response): boolean {
   return false;
 }
 
+/**
+ * Whole-year age for API responses. Prefers the `age` field; derives it
+ * from the legacy `dateOfBirth` on documents written before the 2026-09-22
+ * migration so old records keep working without a data migration.
+ */
+function resolveAge(doc: Record<string, unknown>): number {
+  if (typeof doc.age === 'number' && Number.isFinite(doc.age)) {
+    return Math.max(0, Math.floor(doc.age));
+  }
+  if (typeof doc.dateOfBirth === 'string') {
+    const d = new Date(doc.dateOfBirth);
+    if (!Number.isNaN(d.getTime())) {
+      return Math.max(0, Math.floor((Date.now() - d.getTime()) / 31557600000));
+    }
+  }
+  return 0;
+}
+
 function toApiPatient(doc: Record<string, unknown>) {
   return {
     id: String(doc._id),
     localId: doc.localId,
     patientName: doc.patientName,
-    dateOfBirth: doc.dateOfBirth,
+    age: resolveAge(doc),
     phone: doc.phone,
     gender: doc.gender,
     problem: doc.problem,
@@ -73,7 +91,7 @@ export async function createPatient(req: Request, res: Response): Promise<void> 
     {
       $set: {
         patientName: payload.patientName,
-        dateOfBirth: payload.dateOfBirth,
+        age: payload.age,
         phone: payload.phone,
         gender: payload.gender,
         problem: payload.problem,

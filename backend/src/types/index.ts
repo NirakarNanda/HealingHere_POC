@@ -5,7 +5,8 @@
 export interface PatientPayload {
   localId: string;
   patientName: string;
-  dateOfBirth: string; // YYYY-MM-DD
+  /** Age in whole years. Replaced dateOfBirth (2026-09-22). */
+  age: number;
   phone: string;
   gender: string;
   problem: string;

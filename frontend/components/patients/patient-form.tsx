@@ -9,13 +9,14 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { createPatient } from "@/lib/db/patient-repository";
-import { triggerSync } from "@/lib/sync/sync-engine";
-import type { PatientFormValues } from "@/types/patient";
+import { editPatientRecord, triggerSync } from "@/lib/sync/sync-engine";
+import { resolveAge } from "@/lib/patients/age";
+import type { Patient, PatientFormValues } from "@/types/patient";
 import { cn } from "@/lib/utils";
 
 interface FieldErrors {
   patientName?: string;
-  dateOfBirth?: string;
+  age?: string;
   phone?: string;
   gender?: string;
   problem?: string;
@@ -29,12 +30,8 @@ function validate(values: PatientFormValues): FieldErrors {
   if (!values.patientName.trim()) errors.patientName = "Please enter the patient's name.";
   else if (values.patientName.trim().length < 2) errors.patientName = "Name looks too short.";
 
-  if (!values.dateOfBirth) errors.dateOfBirth = "Please choose the date of birth.";
-  else {
-    const dob = new Date(values.dateOfBirth);
-    if (Number.isNaN(dob.getTime())) errors.dateOfBirth = "That date doesn't look right.";
-    else if (dob > new Date()) errors.dateOfBirth = "Date of birth can't be in the future.";
-  }
+  if (!Number.isInteger(values.age) || values.age < 0) errors.age = "Please enter the age in years.";
+  else if (values.age > 150) errors.age = "That age looks too high.";
 
   const digits = values.phone.replace(/\D/g, "");
   if (!values.phone.trim()) errors.phone = "Please enter a phone number.";
@@ -59,20 +56,40 @@ function FieldError({ message }: { message?: string }) {
   );
 }
 
-/**
- * Premium patient form. On submit: UUID → IndexedDB (PENDING) → instant UI
- * update → toast → background sync. Never waits for the network.
- */
-export function PatientForm({ onSaved }: { onSaved?: () => void }) {
-  const [values, setValues] = useState<PatientFormValues>({
+function blankValues(): PatientFormValues {
+  return {
     patientName: "",
-    dateOfBirth: "",
+    age: NaN,
     phone: "",
     gender: "",
     problem: "",
     injuryHistory: "",
     notes: "",
     remainingPayment: 0,
+  };
+}
+
+/**
+ * Premium patient form. On submit: UUID → IndexedDB (PENDING) → instant UI
+ * update → toast → background sync. Never waits for the network.
+ *
+ * Pass `patient` to edit an existing record: the form prefills, and saving
+ * updates the local record and re-queues it for sync (server + sheet).
+ */
+export function PatientForm({ patient, onSaved }: { patient?: Patient; onSaved?: () => void }) {
+  const isEditing = Boolean(patient);
+  const [values, setValues] = useState<PatientFormValues>(() => {
+    if (!patient) return blankValues();
+    return {
+      patientName: patient.patientName,
+      age: resolveAge(patient) ?? NaN,
+      phone: patient.phone,
+      gender: patient.gender,
+      problem: patient.problem,
+      injuryHistory: patient.injuryHistory ?? "",
+      notes: patient.notes ?? "",
+      remainingPayment: patient.remainingPayment ?? 0,
+    };
   });
   const [errors, setErrors] = useState<FieldErrors>({});
   const [saving, setSaving] = useState(false);
@@ -97,17 +114,22 @@ export function PatientForm({ onSaved }: { onSaved?: () => void }) {
 
     setSaving(true);
     try {
-      await createPatient(values);
-      const wasOffline = typeof navigator !== "undefined" && !navigator.onLine;
-      toast.success(
-        wasOffline
-          ? "Saved locally · Will sync when internet returns"
-          : "Patient saved safely on this device"
-      );
-      if (!wasOffline) triggerSync();
+      if (patient) {
+        await editPatientRecord(patient.localId, values);
+        toast.success("Changes saved · will sync automatically");
+      } else {
+        await createPatient(values);
+        const wasOffline = typeof navigator !== "undefined" && !navigator.onLine;
+        toast.success(
+          wasOffline
+            ? "Saved locally · Will sync when internet returns"
+            : "Patient saved safely on this device"
+        );
+        if (!wasOffline) triggerSync();
+      }
       onSaved?.();
     } catch {
-      toast.error("Could not save the patient. Please try again.");
+      toast.error(isEditing ? "Could not save changes. Please try again." : "Could not save the patient. Please try again.");
     } finally {
       setSaving(false);
     }
@@ -132,17 +154,25 @@ export function PatientForm({ onSaved }: { onSaved?: () => void }) {
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="dateOfBirth">Date of birth *</Label>
+          <Label htmlFor="age">Age (years) *</Label>
           <Input
-            id="dateOfBirth"
-            type="date"
-            value={values.dateOfBirth}
-            onChange={set("dateOfBirth")}
-            max={new Date().toISOString().slice(0, 10)}
-            aria-invalid={!!errors.dateOfBirth}
-            className={inputClass(errors.dateOfBirth)}
+            id="age"
+            type="number"
+            inputMode="numeric"
+            min="0"
+            max="150"
+            step="1"
+            placeholder="e.g. 42"
+            value={Number.isNaN(values.age) ? "" : values.age}
+            onChange={(e) => {
+              const raw = e.target.value;
+              setValues((v) => ({ ...v, age: raw === "" ? NaN : Number(raw) }));
+              setErrors((prev) => ({ ...prev, age: undefined }));
+            }}
+            aria-invalid={!!errors.age}
+            className={inputClass(errors.age)}
           />
-          <FieldError message={errors.dateOfBirth} />
+          <FieldError message={errors.age} />
         </div>
 
         <div className="space-y-2">
@@ -241,8 +271,10 @@ export function PatientForm({ onSaved }: { onSaved?: () => void }) {
         {saving ? (
           <>
             <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-            Saving…
+            {isEditing ? "Saving…" : "Saving…"}
           </>
+        ) : isEditing ? (
+          "Save changes"
         ) : (
           "Save Patient"
         )}

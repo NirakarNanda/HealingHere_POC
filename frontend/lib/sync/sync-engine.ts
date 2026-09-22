@@ -2,15 +2,18 @@ import { toast } from "sonner";
 import { ApiError, apiFetch, patientsApi } from "@/lib/api/client";
 import {
   deletePatientLocal,
+  getPatient,
   getPatients,
   getPendingDeletes,
   getPendingPatients,
   queuePendingDelete,
   removePendingDelete,
+  updatePatient,
   updateSyncStatus,
   upsertPulledPatient,
 } from "@/lib/db/patient-repository";
-import type { Patient } from "@/types/patient";
+import { resolveAge } from "@/lib/patients/age";
+import type { Patient, PatientFormValues } from "@/types/patient";
 
 /**
  * Sync queue engine.
@@ -97,7 +100,9 @@ export async function syncNow(): Promise<SyncSummary> {
     const payload = queue.map((p: Patient) => ({
       localId: p.localId,
       patientName: p.patientName,
-      dateOfBirth: p.dateOfBirth,
+      // resolveAge falls back to the legacy dateOfBirth on pre-migration
+      // local records so the doctor's existing data still syncs.
+      age: resolveAge(p) ?? 0,
       phone: p.phone,
       gender: p.gender,
       problem: p.problem,
@@ -131,6 +136,9 @@ export async function syncNow(): Promise<SyncSummary> {
 
     let synced = 0;
     let failed = 0;
+    // Set when a record was edited while this sync was in flight — the
+    // server received stale values, so one follow-up pass re-pushes it.
+    let editedMidSync = false;
 
     await Promise.all(
       queue.map(async (p) => {
@@ -139,6 +147,22 @@ export async function syncNow(): Promise<SyncSummary> {
         // `ok` / `success` booleans too.
         const ok =
           result?.ok ?? result?.success ?? (result?.status === "SYNCED");
+
+        // The doctor may have edited this record after the payload was
+        // built. updatedAt changed → the server got stale values: keep the
+        // record queued instead of marking it SYNCED.
+        const current = await getPatient(p.localId);
+        if (!current) return; // deleted mid-sync; nothing to mark.
+        if (current.updatedAt !== p.updatedAt) {
+          editedMidSync = true;
+          await updateSyncStatus(p.localId, {
+            syncStatus: "PENDING",
+            syncAttempts: 0,
+            lastSyncError: undefined,
+          });
+          return;
+        }
+
         if (ok) {
           synced += 1;
           await updateSyncStatus(p.localId, {
@@ -165,7 +189,13 @@ export async function syncNow(): Promise<SyncSummary> {
       toast.warning(`${synced} synced · ${failed} requires retry`);
     }
 
-    return { synced, failed, total: queue.length };
+    const summary = { synced, failed, total: queue.length };
+    if (editedMidSync) {
+      // A record changed under this sync — push the fresh values now that
+      // the lock is released. Fire-and-forget; it toasts on its own.
+      setTimeout(() => triggerSync(), 300);
+    }
+    return summary;
   } finally {
     syncInFlight = false;
   }
@@ -316,4 +346,29 @@ export async function deletePatientRecord(patient: Patient): Promise<DeleteResul
     await queuePendingDelete(patient.localId);
     return { outcome: "queued" };
   }
+}
+
+/**
+ * Edit a patient record: update it locally immediately (the doctor's intent
+ * is never lost), then re-queue it for sync so the server + sheet row get
+ * the fresh values on the next push.
+ *
+ * Records that never synced stay PENDING/FAILED (they'll push anyway);
+ * SYNCED records flip back to PENDING so the edit travels upstream.
+ * A record edited mid-sync is detected by syncNow's updatedAt guard and
+ * re-pushed on a follow-up pass.
+ */
+export async function editPatientRecord(
+  localId: string,
+  values: PatientFormValues
+): Promise<void> {
+  const existing = await getPatient(localId);
+  await updatePatient(localId, values);
+  await updateSyncStatus(localId, {
+    syncStatus:
+      existing && existing.syncStatus !== "SYNCED" ? existing.syncStatus : "PENDING",
+    syncAttempts: 0,
+    lastSyncError: undefined,
+  });
+  triggerSync();
 }

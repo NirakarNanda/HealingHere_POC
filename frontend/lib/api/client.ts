@@ -71,7 +71,7 @@ export interface ServerPatient {
   id: string;
   localId: string;
   patientName: string;
-  dateOfBirth: string;
+  age: number;
   phone: string;
   gender: string;
   problem: string;

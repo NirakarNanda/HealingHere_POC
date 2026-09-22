@@ -16,7 +16,10 @@ const patientSchema = new mongoose.Schema(
   {
     localId: { type: String, required: true, unique: true, index: true },
     patientName: { type: String, required: true, trim: true },
-    dateOfBirth: { type: String, required: true }, // YYYY-MM-DD
+    // Age in whole years. Replaced the old `dateOfBirth` string (2026-09-22).
+    // Not `required`: documents written before the migration only carry
+    // dateOfBirth, and they must keep validating on updates.
+    age: { type: Number, min: 0, max: 150, default: 0 },
     phone: { type: String, required: true, trim: true },
     gender: { type: String, required: true },
     problem: { type: String, required: true, trim: true },

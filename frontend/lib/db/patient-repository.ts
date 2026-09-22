@@ -88,7 +88,7 @@ export async function upsertPulledPatient(
     const patient: Patient = {
       localId: server.localId,
       patientName: server.patientName,
-      dateOfBirth: server.dateOfBirth,
+      age: server.age,
       phone: server.phone,
       gender: server.gender,
       problem: server.problem,
@@ -110,7 +110,7 @@ export async function upsertPulledPatient(
   if (server.updatedAt <= local.updatedAt) return "skipped";
   await db.patients.update(server.localId, {
     patientName: server.patientName,
-    dateOfBirth: server.dateOfBirth,
+    age: server.age,
     phone: server.phone,
     gender: server.gender,
     problem: server.problem,

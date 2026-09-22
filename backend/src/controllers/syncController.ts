@@ -40,7 +40,7 @@ export async function syncPatients(req: Request, res: Response): Promise<void> {
         {
           $set: {
             patientName: patient.patientName,
-            dateOfBirth: patient.dateOfBirth,
+            age: patient.age,
             phone: patient.phone,
             gender: patient.gender,
             problem: patient.problem,

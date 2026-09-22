@@ -36,7 +36,9 @@ var SHEET_NAME = 'Patients';
 var HEADERS = [
   'localId',
   'patientName',
-  'dateOfBirth',
+  // 'age' replaced 'dateOfBirth' on 2026-09-22. ensureHeaders_() appends it
+  // as a new column; the old dateOfBirth column is left untouched as history.
+  'age',
   'phone',
   'gender',
   'problem',
@@ -263,7 +265,7 @@ function testUpsert_() {
         patient: {
           localId: 'TEST-LOCAL-ID-001',
           patientName: 'Test Patient (delete me)',
-          dateOfBirth: '1990-01-01',
+          age: 35,
           phone: '+910000000000',
           gender: 'Other',
           problem: 'Script self-test',

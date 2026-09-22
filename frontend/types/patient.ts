@@ -7,8 +7,13 @@ export interface Patient {
   localId: string;
 
   patientName: string;
-  /** ISO date string (yyyy-MM-dd) */
-  dateOfBirth: string;
+  /** Age in whole years. Replaced dateOfBirth everywhere (2026-09-22). */
+  age: number;
+  /**
+   * Legacy field from records created before the age migration.
+   * Still read as a fallback by resolveAge(); never written for new records.
+   */
+  dateOfBirth?: string;
   phone: string;
   gender: string;
   problem: string;
@@ -35,7 +40,7 @@ export interface Patient {
 /** Fields the doctor enters on the patient form. */
 export type PatientFormValues = Pick<
   Patient,
-  "patientName" | "dateOfBirth" | "phone" | "gender" | "problem" | "injuryHistory" | "notes" | "remainingPayment"
+  "patientName" | "age" | "phone" | "gender" | "problem" | "injuryHistory" | "notes" | "remainingPayment"
 >;
 
 export type PatientSyncPatch = Partial<
