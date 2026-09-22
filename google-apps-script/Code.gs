@@ -156,6 +156,18 @@ function upsertPatient_(patient) {
   var sheet = getOrCreateSheet_();
   ensureHeaders_(sheet);
 
+  // One-time automatic migration: rows written before the age change have
+  // dateOfBirth filled and age empty — fill age from dateOfBirth on the
+  // first sync after this version is deployed. Also runnable manually from
+  // the editor (select backfillAge_ and click Run).
+  maybeBackfillAgeOnce_(sheet);
+
+  // Per-row safety net: if a payload ever arrives with dateOfBirth but no
+  // age (older client), convert on the spot so the sheet always gets an age.
+  if ((patient.age === undefined || patient.age === null || patient.age === '') && patient.dateOfBirth) {
+    patient.age = dobToAge_(String(patient.dateOfBirth));
+  }
+
   var localId = String(patient.localId);
   var rowNumber = findRowByLocalId_(sheet, localId);
 
@@ -176,6 +188,63 @@ function upsertPatient_(patient) {
   SpreadsheetApp.flush();
 
   return { success: true, action: action, localId: localId };
+}
+
+/** Whole years between a YYYY-MM-DD date string and today; '' when unusable. */
+function dobToAge_(dob) {
+  if (!dob) return '';
+  var d = new Date(dob);
+  if (isNaN(d.getTime()) || d.getTime() > Date.now()) return '';
+  return Math.max(0, Math.floor((Date.now() - d.getTime()) / 31557600000));
+}
+
+/**
+ * Fill every empty `age` cell from the legacy `dateOfBirth` column.
+ * Returns the number of rows filled. Safe to run repeatedly — rows that
+ * already have an age are never touched.
+ */
+function backfillAge_(sheet) {
+  sheet = sheet || getOrCreateSheet_();
+  ensureHeaders_(sheet);
+  var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0]
+    .map(function (h) { return String(h); });
+  var ageCol = headers.indexOf('age') + 1;
+  var dobCol = headers.indexOf('dateOfBirth') + 1;
+  if (ageCol < 1 || dobCol < 1 || sheet.getLastRow() < 2) return 0;
+
+  var lastRow = sheet.getLastRow();
+  var ages = sheet.getRange(2, ageCol, lastRow - 1, 1).getValues();
+  var dobs = sheet.getRange(2, dobCol, lastRow - 1, 1).getValues();
+  var filled = 0;
+  for (var i = 0; i < ages.length; i++) {
+    var ageEmpty = ages[i][0] === '' || ages[i][0] === null || ages[i][0] === undefined;
+    if (ageEmpty && dobs[i][0]) {
+      var age = dobToAge_(String(dobs[i][0]));
+      if (age !== '') {
+        sheet.getRange(i + 2, ageCol).setValue(age);
+        filled++;
+      }
+    }
+  }
+  if (filled > 0) SpreadsheetApp.flush();
+  return filled;
+}
+
+/**
+ * Run the DOB -> age backfill exactly once per script deployment.
+ * Called automatically on the first upsert after publishing a new version,
+ * so existing sheet rows convert themselves with no manual step.
+ */
+function maybeBackfillAgeOnce_(sheet) {
+  var props = PropertiesService.getScriptProperties();
+  if (props.getProperty('ageBackfilled_v1') === 'done') return;
+  try {
+    var filled = backfillAge_(sheet);
+    Logger.log('backfillAge_: filled ' + filled + ' age cell(s) from dateOfBirth');
+  } catch (err) {
+    Logger.log('backfillAge_ failed: ' + err);
+  }
+  props.setProperty('ageBackfilled_v1', 'done');
 }
 
 /**
